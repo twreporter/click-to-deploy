@@ -20,8 +20,6 @@
 # _SOLUTION_NAME - <VM IMAGE TO BE BUILT>
 
 timeout: 1800s # 30m
-options:
-  workerPool: ${PROJECT_ID}/gcb-workers-pool
 steps:
 
 - id: Download Service Account Key
@@ -59,8 +57,8 @@ steps:
   - --env=RUN_TESTS=true
   - --env=ATTACH_LICENSE=true
   - --env=LICENSE_PROJECT_NAME=click-to-deploy-images
-  - --env=USE_INTERNAL_IP=true
   - --env=TESTS_CUSTOM_METADATA=google-c2d-startup-enable=0
+  - --env=ZONE=asia-east1-a
   - --volume=/workspace/vm/chef:/chef:ro
   - --volume=/workspace/vm/packer:/packer:ro
   - --volume=/workspace/vm/tests:/tests:ro
