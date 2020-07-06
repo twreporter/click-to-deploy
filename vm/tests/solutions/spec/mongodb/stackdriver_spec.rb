@@ -1,1 +1,1 @@
-../__common__/stackdriver_not_installed.rb
+../__common__/stackdriver_installed.rb
