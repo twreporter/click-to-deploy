@@ -76,6 +76,15 @@ cookbook_file '/etc/mongodb.monitor.conf.template' do
   action :create
 end
 
+cookbook_file '/etc/mongodb.logger.conf' do
+  source 'conf/mongodb.logger.conf'
+  owner 'root'
+  group 'root'
+  mode 0644
+  action :create
+end
+
+
 c2d_startup_script 'mongodb-server' do
   source 'startup/mongodb-server'
 end
@@ -90,6 +99,10 @@ end
 
 c2d_startup_script 'mongodb-monitor' do
   source 'startup/mongodb-monitor'
+end
+
+c2d_startup_script 'mongodb-logger' do
+  source 'startup/mongodb-logger'
 end
 
 # Prepare directory for sources and licenses
