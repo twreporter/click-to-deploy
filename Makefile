@@ -42,3 +42,27 @@ vm-lint: ## Runs lint for Chef cookbooks
 .PHONY: vm-generate-triggers
 vm-generate-triggers: ## Generates and displays GCB triggers for VM
 	@python scripts/triggers_vm_generator.py
+
+# Helper to test whether the environment variable is set
+# Params:
+#   	 1. Variable name(s) to test.
+#     	 2. (optional) Error message to print.
+# Credit from: https://stackoverflow.com/a/10858332
+check_defined = \
+	$(strip $(foreach 1,$1, \
+		$(call __check_defined,$1,$(strip $(value 2)))))
+__check_defined = \
+	$(if $(value $1),, \
+		$(error Undefined $1$(if $2, ($2))$(if $(value @), \
+			required by target `$@`)))
+
+.PHONY: cloud-build-vm
+cloud-build-vm: ## Runs cloud build to create target machine image
+	@$(call check_defined, GCP_PROJECT_TO_RUN_CLOUD_BUILD, Your GCP project ID)
+	@$(call check_defined, PACKER_LOGS_GCS_BUCKET_NAME, Bucket to export Packer logs)
+	@$(call check_defined, SERVICE_ACCOUNT_KEY_JSON_GCS, GCS URL to the service account)
+	@$(call check_defined, SOLUTION_NAME, VM image to build)
+	@gcloud builds submit . \
+		--config cloudbuild-vm.yaml \
+		--substitutions _LOGS_BUCKET=$$PACKER_LOGS_GCS_BUCKET_NAME,_SERVICE_ACCOUNT_JSON_GCS=$$SERVICE_ACCOUNT_KEY_JSON_GCS,_SOLUTION_NAME=$$SOLUTION_NAME \
+		--project $$GCP_PROJECT_TO_RUN_CLOUD_BUILD

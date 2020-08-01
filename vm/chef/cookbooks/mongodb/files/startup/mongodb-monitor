@@ -1,0 +1,80 @@
+#!/bin/bash -eu
+#
+# Copyright 2020 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# This script assumes that mongodb has already been installed and that
+# a bare-bones service is running on each of the members of the cluster.
+#
+# The script will:
+#   * Set up cluster monitor:
+#     * Add configuration for monitor
+#     * Create an user with cluster monitor role 
+
+source /opt/c2d/c2d-utils || exit 1
+
+systemctl is-active --quiet stackdriver-agent
+
+# Check if stackdriver-agent is available
+status=$?
+if [ $status -eq 1 ]; then
+  echo "Stackdriver-agent service is not running. Skip."
+  exit 0
+fi
+
+# Build mongo monitor config from template
+readonly STACKDRIVER_CONF_PATH="/etc/stackdriver/collectd.d"
+readonly TEMPLATE="mongodb.monitor.conf.template"
+
+cd $STACKDRIVER_CONF_PATH
+
+# Configure stackdirver monitoring user and password
+export STATS_USER=stackdriver
+export STATS_PASS=$(get_attribute_value "stackdriver_password")
+
+mv /etc/$TEMPLATE $STACKDRIVER_CONF_PATH 
+
+envsubst < $TEMPLATE > mongodb.conf
+rm $TEMPLATE
+
+echo "Mongodb monitoring script is installed"
+
+service stackdriver-agent restart
+
+# First instance in the list will be the mongodb_primary_instance
+readonly mongodb_instances="$(get_attribute_value "mongodb_servers")"
+readonly mongodb_primary_instance="$(echo "${mongodb_instances}" \
+  | awk '{ print $1 }')"
+
+# Create the monitor user only from primary
+if [[ "$(hostname)" != "${mongodb_primary_instance}" ]]; then
+  echo "Not primary. Exiting"
+  exit 0
+fi
+
+# Create monitor user
+cat << EOF > /tmp/createuser
+db.createUser(
+   {
+     user: "$STATS_USER",
+     pwd: "$STATS_PASS",
+     roles: [ { role: "clusterMonitor", db: "admin" } ]
+   }
+)
+EOF
+
+mongo admin < /tmp/createuser
+rm /tmp/createuser
+
+echo "Stackdriver monitor user created"
